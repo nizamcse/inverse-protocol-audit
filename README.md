@@ -1,447 +1,215 @@
-# 🛡️ Inverse Finance — Scope → Contracts → Addresses → File Lines → Audit Guide
-
-Protocol: Inverse Finance  
-Scope: https://immunefi.com/bug-bounty/inversefinance/scope/#top  
-
-Repos:
-- https://github.com/InverseFinance/anchor
-- https://github.com/InverseFinance/FiRM
+# 🧠 Inverse Finance — Full Audit Playbook (Beginner → Expert)
 
 ---
 
-# 🧭 SYSTEM ORDER (AUDIT FLOW)
+## 🔗 Repositories
 
-Oracle → Comptroller → Market → Fed → Token
-
----
-
-# 🔴 LEVEL 1 — ORACLE (EXPERT)
+- FiRM: https://github.com/InverseFinance/FiRM  
+- Anchor: https://github.com/InverseFinance/anchor  
 
 ---
 
-## Type
-Oracle
+# 🚨 VULNERABILITY SEVERITY (IMMUNEFI STANDARD)
 
-## Name (Target)
-Oracle Core
+## 🔴 Critical
 
-## Smart Contract Link (Mainnet Example)
-https://etherscan.io/address/0x865377367054516e17014ccded1e7d814edc9ce4
-
-## GitHub Path
-https://github.com/InverseFinance/anchor/blob/master/contracts/Oracle.sol
-
-## Critical Lines (Exploit Focus)
-- getPrice() → main entry
-- price = feeds[token]
-- no strict staleness enforcement
+- Direct theft of user funds  
+- Direct theft of NFTs  
+- Permanent freezing of funds  
+- Permanent freezing of NFTs  
+- Unauthorized minting of NFTs  
+- Manipulable RNG abuse  
+- NFT metadata manipulation (tokenURI)  
+- Protocol insolvency  
+- Theft of unclaimed yield / royalties  
+- Permanent freezing of unclaimed yield / royalties  
 
 ---
 
-## How to Test
+## 🟠 High
 
-### Flashloan Manipulation
-1. Identify asset with low liquidity feed
-2. Manipulate pool price
-3. Call borrow immediately
-
-✔ If price used instantly → exploit
+- Temporary freezing of funds  
+- Temporary freezing of NFTs  
 
 ---
 
-### Stale Price
-1. Skip time / simulate delay
-2. Call getPrice()
+## 🟡 Medium
 
-✔ If old data accepted → exploit
-
----
-
-## Difficulty
-🔴 Expert
+- Contract unusable (no funds)  
+- Block stuffing  
+- Griefing (no profit attacker)  
+- Gas theft  
+- Unbounded gas usage  
 
 ---
 
-## Type
-Oracle
+## 🟢 Low
 
-## Name (Target)
-CurveFeed
-
-## Smart Contract Link (Example Pool Feed)
-https://etherscan.io/address/0x0000000000000000000000000000000000000000
-
-## GitHub Path
-https://github.com/InverseFinance/anchor/blob/master/contracts/CurveFeed.sol
-
-## Critical Lines
-- getPrice()
-- virtual_price()
-- no TWAP
+- Failure to deliver promised returns  
 
 ---
 
-## How to Test
-
-1. Flashloan swap in Curve pool  
-2. Inflate virtual price  
-3. Trigger dependent borrow  
-
-✔ If price spikes used → exploit  
+# 🟢 LEVEL 1 — CORE TOKENS (EASY)
 
 ---
 
-## Difficulty
-🔴 Expert
+## DOLA Token
+
+- **Type:** Core Stablecoin  
+- **Contract:** https://etherscan.io/address/0x865377367054516e17014ccded1e7d814edc9ce4  
+- **Repo Path:** `anchor/contracts/Dola.sol`
+
+### 🔍 Audit Focus (Line-Level)
+
+- `mint()` → access control  
+- `burn()` → supply correctness  
+- `transfer()` → edge cases  
+- `totalSupply` updates  
+
+### 🧪 How to Test
+
+1. Unauthorized mint  
+2. Mint → burn mismatch  
+3. Small amount rounding (1 wei)  
 
 ---
 
-## Type
-Oracle
+## xINV
 
-## Name (Target)
-YearnVaultFeed
+- **Type:** Staking Token  
+- **Contract:** https://etherscan.io/address/0x1637e4e9941d55703a7a5e7807d6ada3f7dcd61b  
+- **Repo Path:** `anchor/contracts/XINV.sol`
 
-## Smart Contract Link (Example)
-https://etherscan.io/address/0x0000000000000000000000000000000000000000
+### 🔍 Focus
 
-## GitHub Path
-https://github.com/InverseFinance/anchor/blob/master/contracts/YearnVaultFeed.sol
+- `exchangeRateStored()`  
+- mint/redeem  
 
-## Critical Lines
-- pricePerShare()
-- direct multiplication without safety bounds
+### 🧪 Tests
 
----
-
-## How to Test
-
-1. Manipulate underlying vault asset  
-2. Inflate share price  
-3. Call borrow  
-
-✔ If inflated value accepted → exploit  
+- Deposit small → withdraw large  
+- Check rounding bias  
 
 ---
 
-## Difficulty
-🔴 Expert
+# 🟡 LEVEL 2 — LENDING CORE (IMPORTANT)
 
 ---
 
-# 🟠 LEVEL 2 — COMPTROLLER
+## CErc20 Markets
+
+- **Type:** Lending  
+- **Example:** https://etherscan.io/address/0x63df5e23db45a2066508318f172ba45b9cd37035  
+- **Repo Path:**  
+  - `anchor/contracts/CErc20.sol`  
+  - `anchor/contracts/CToken.sol`
 
 ---
 
-## Type
-Risk Engine
+### 🔍 Critical Lines
 
-## Name (Target)
-Comptroller
-
-## Smart Contract Link
-https://etherscan.io/address/0x9d3c4b3f9c2eab5c8c2c5b0a5f7c9e7e3a8c3e0b
-
-## GitHub Path
-https://github.com/InverseFinance/anchor/blob/master/contracts/Comptroller.sol
-
-## Critical Lines
-
-- borrowAllowed()
-- getAccountLiquidity()
-- liquidity = collateral * price * factor
+- `getCashPrior()`  
+- `doTransferIn()`  
+- `mintInternal()`  
+- `redeemUnderlyingInternal()`  
 
 ---
 
-## How to Test
+### 🧪 Exploit Tests
 
-### Over Borrow
-1. Manipulate oracle price upward  
-2. Call borrow()  
+#### 1. Cached Reserve + Direct Transfer
 
-✔ If borrow > real collateral → exploit  
-
----
-
-### Rounding Edge
-1. Use minimal collateral  
-2. Attempt borrow  
-
-✔ If allowed → exploit  
+- Transfer tokens directly to contract  
+- Call `mint()`  
+- Check incorrect reserve usage  
 
 ---
 
-## Difficulty
-🟠 Advanced
+#### 2. Fee-on-transfer Tokens
+
+- Deposit X  
+- Contract receives X - fee  
+- Check if accounting uses X  
 
 ---
 
-## Type
-Risk Engine
+#### 3. Rounding Loop
 
-## Name (Target)
-BorrowController
-
-## Smart Contract Link
-https://etherscan.io/address/0x0000000000000000000000000000000000000000
-
-## GitHub Path
-https://github.com/InverseFinance/anchor/blob/master/contracts/BorrowController.sol
-
-## Critical Lines
-- borrowAllowed()
-- missing strict invariant checks
+- mint small  
+- redeem  
+- repeat → profit  
 
 ---
 
-## How to Test
-
-1. Supply tiny collateral  
-2. Borrow repeatedly  
-
-✔ If cumulative bypass → exploit  
+# 🟠 LEVEL 3 — ORACLE + PRICING
 
 ---
 
-## Difficulty
-🟠 Advanced
+## FiRM Oracle
+
+- **Type:** Price Oracle  
+- **Contract:** https://etherscan.io/address/0xabe146cf570fd27ddd985895ce9b138a7110cce8  
+- **Repo Path:** `FiRM/src/oracle/Oracle.sol`
 
 ---
 
-# 🟡 LEVEL 3 — MARKET
+### 🔍 Focus
+
+- `getPrice()`  
+- decimals normalization  
+- stale price  
 
 ---
 
-## Type
-Lending Market
+### 🧪 Exploits
 
-## Name (Target)
-CToken
+#### Oracle Lag
 
-## Smart Contract Link (Example Market)
-https://etherscan.io/address/0x5e181bdde2fa8af7265cb3124735e9a13779c021
-
-## GitHub Path
-https://github.com/InverseFinance/anchor/blob/master/contracts/CToken.sol
-
-## Critical Lines
-
-- exchangeRateStored()
-- (cash + borrows - reserves) / totalSupply
-- getCashPrior()
+- manipulate DEX  
+- oracle not updated  
+- borrow  
 
 ---
 
-## How to Test
+#### Decimal Mismatch
 
-### Cached Reserve Exploit
-1. Transfer tokens directly to contract  
-2. Call mint()  
-
-✔ If exchange rate changes → exploit  
+- 8 vs 18 decimals  
+- over-borrow  
 
 ---
 
-### Exchange Rate Attack
-1. Deposit small amount  
-2. Inject large liquidity  
+#### No TWAP
 
-✔ If value inflates → exploit  
+- flashloan → price spike  
 
 ---
 
-## Difficulty
-🟡 Intermediate
+# 🔴 LEVEL 4 — FED + PSM (CRITICAL)
 
 ---
 
-## Type
-Lending Market
+## Fed
 
-## Name (Target)
-CErc20
-
-## Smart Contract Link
-https://etherscan.io/address/0x5e181bdde2fa8af7265cb3124735e9a13779c021
-
-## GitHub Path
-https://github.com/InverseFinance/anchor/blob/master/contracts/CErc20.sol
-
-## Critical Lines
-
-- doTransferIn()
-- balanceBefore / balanceAfter
-- fee-on-transfer handling
+- **Contract:** https://etherscan.io/address/0x2b34548b865ad66a2b046cb82e59ee43f75b90fd  
+- **Repo Path:** `anchor/contracts/Fed.sol`
 
 ---
 
-## How to Test
+### 🔍 Focus
 
-1. Use fee-on-transfer token  
-2. Call mint()  
-
-✔ If accounting mismatch → exploit  
-
----
-
-## Difficulty
-🟡 Intermediate
+- `expansion()`  
+- `contraction()`  
+- `takeProfit()`  
 
 ---
 
-# 🟢 LEVEL 4 — FED
+### 🧪 Exploits
+
+#### Accounting Drift
+
+- manipulate cToken exchangeRate  
+- inflate supply  
 
 ---
 
-## Type
-Monetary System
-
-## Name (Target)
-Fed
-
-## Smart Contract Link
-https://etherscan.io/address/0x2d3b10fc395b109dc32b71d14cdd523e471f14ef
-
-## GitHub Path
-https://github.com/InverseFinance/anchor/blob/master/contracts/Fed.sol
-
-## Critical Lines
-
-- takeProfit()
-- profit = balanceOfUnderlying - supply
-
----
-
-## How to Test
-
-### Fake Profit
-1. Inflate exchange rate  
-2. Call takeProfit()  
-
-✔ If funds withdrawn → exploit  
-
----
-
-## Difficulty
-🟢 Easy-Medium
-
----
-
-## Type
-Monetary System
-
-## Name (Target)
-DolaFed
-
-## Smart Contract Link
-https://etherscan.io/address/0x0000000000000000000000000000000000000000
-
-## GitHub Path
-https://github.com/InverseFinance/anchor/blob/master/contracts/DolaFed.sol
-
-## Critical Lines
-
-- expansion()
-- contraction()
-- relies on external cToken
-
----
-
-## How to Test
-
-1. Manipulate cToken  
-2. Call expansion()  
-
-✔ If supply inflated → exploit  
-
----
-
-## Difficulty
-🟢 Easy-Medium
-
----
-
-# 🟢 LEVEL 5 — TOKEN
-
----
-
-## Type
-ERC20
-
-## Name (Target)
-DOLA
-
-## Smart Contract Link
-https://etherscan.io/address/0x865377367054516e17014ccded1e7d814edc9ce4
-
-## GitHub Path
-https://github.com/InverseFinance/FiRM/blob/master/contracts/DOLA.sol
-
-## Critical Lines
-
-- mint()
-- burn()
-- access control
-
----
-
-## How to Test
-
-1. Call mint() from attacker  
-
-✔ If succeeds → exploit  
-
----
-
-## Difficulty
-🟢 Beginner
-
----
-
-## Type
-ERC20
-
-## Name (Target)
-DBR
-
-## Smart Contract Link
-https://etherscan.io/address/0x0000000000000000000000000000000000000000
-
-## GitHub Path
-https://github.com/InverseFinance/FiRM/blob/master/contracts/DBR.sol
-
-## Critical Lines
-
-- mint()
-- totalSupply tracking
-
----
-
-## How to Test
-
-1. Compare balances vs supply  
-
-✔ mismatch → exploit  
-
----
-
-## Difficulty
-🟢 Beginner
-
----
-
-# 🔴 FINAL EXPLOIT CHAIN
-
-Oracle → Comptroller → Market → Fed → Profit Extraction
-
----
-
-## Validation Condition
-
-profit_after > profit_before
-
-✔ If TRUE → CRITICAL BUG
-
----
-
-# 🧠 END
+#### Profit Theft
